@@ -4,3 +4,6 @@ results/*.txt
 playwright-report/
 .DS_Store
 .env
+.next
+build/
+dist/
