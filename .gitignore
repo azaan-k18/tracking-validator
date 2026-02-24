@@ -3,3 +3,4 @@ results/*.json
 results/*.txt
 playwright-report/
 .DS_Store
+.env
