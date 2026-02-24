@@ -18,6 +18,39 @@ export class SiteCrawler {
     }
 
     /**
+     * Normalize hostname for same-site matching.
+     *
+     * @param {string} hostname Hostname value.
+     * @returns {string}
+     */
+    normalizeHostname(hostname) {
+        return String(hostname || "").toLowerCase().replace(/^www\./, "");
+    }
+
+    /**
+     * Check if two hostnames belong to the same site.
+     *
+     * @param {string} first First hostname.
+     * @param {string} second Second hostname.
+     * @returns {boolean}
+     */
+    isSameSiteHost(first, second) {
+        return this.normalizeHostname(first) === this.normalizeHostname(second);
+    }
+
+    /**
+     * Normalize URL for queue/visited checks.
+     *
+     * @param {string} rawUrl Raw URL.
+     * @returns {string}
+     */
+    normalizeUrl(rawUrl) {
+        const url = new URL(rawUrl);
+        url.hash = "";
+        return url.toString();
+    }
+
+    /**
      * Crawl links using a provided page factory.
      *
      * @param {string} startUrl Entry URL.
@@ -26,7 +59,7 @@ export class SiteCrawler {
      */
     async crawl(startUrl, newPage) {
         const seed = new URL(startUrl);
-        const queue = [{ url: seed.toString(), depth: 0 }];
+        const queue = [{ url: this.normalizeUrl(seed.toString()), depth: 0 }];
         const visited = new Set();
         const discovered = [];
 
@@ -53,21 +86,22 @@ export class SiteCrawler {
                 const links = await page.$$eval("a[href]", (anchors) => anchors.map((anchor) => anchor.href));
 
                 links.forEach((link) => {
-                    if (visited.has(link)) {
-                        return;
-                    }
-
                     try {
                         const parsed = new URL(link);
-                        if (this.sameOriginOnly && parsed.origin !== seed.origin) {
+                        if (this.sameOriginOnly && !this.isSameSiteHost(parsed.hostname, seed.hostname)) {
                             return;
                         }
 
-                        if (!this.shouldInclude(parsed.toString())) {
+                        const normalizedLink = this.normalizeUrl(parsed.toString());
+                        if (visited.has(normalizedLink)) {
                             return;
                         }
 
-                        queue.push({ url: parsed.toString(), depth: current.depth + 1 });
+                        if (!this.shouldInclude(normalizedLink)) {
+                            return;
+                        }
+
+                        queue.push({ url: normalizedLink, depth: current.depth + 1 });
                     } catch {
                         // Ignore invalid URLs.
                     }

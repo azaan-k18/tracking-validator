@@ -34,7 +34,9 @@ export class RuleEngine {
      */
     evaluateRule(rule, events, pages) {
         const providerKey = String(rule.provider || "").toUpperCase();
-        const filtered = events.filter((event) => event.parsed.provider.key === providerKey);
+        const filtered = (Array.isArray(events) ? events : []).filter((event) => {
+            return String(event?.parsed?.provider?.key || "").toUpperCase() === providerKey;
+        });
         const scoped = this.scopeEvents(rule, filtered, pages);
         const assertType = rule.assert?.type || "exists";
 
@@ -51,9 +53,10 @@ export class RuleEngine {
 
         if (assertType === "existsPerPage") {
             const minCount = rule.assert?.minCount ?? 1;
-            const missing = pages
+            const scopedPages = Array.isArray(pages) ? pages : [];
+            const missing = scopedPages
                 .filter((page) => this.pageMatches(rule, page.url))
-                .filter((page) => scoped.filter((event) => event.pageUrl === page.url).length < minCount)
+                .filter((page) => scoped.filter((event) => event?.pageUrl === page.url).length < minCount)
                 .map((page) => page.url);
 
             return {
@@ -67,12 +70,62 @@ export class RuleEngine {
         if (assertType === "paramEquals") {
             const paramKey = rule.assert?.paramKey;
             const expected = rule.assert?.expected;
-            const match = scoped.some((event) => event.parsed.data.some((entry) => entry.key === paramKey && entry.value === expected));
+            const match = scoped.some((event) => this.getParamValue(event, paramKey) === expected);
             return {
                 id: rule.id,
                 description: rule.description,
                 passed: match,
                 details: match ? `Found ${paramKey}=${expected}` : `Did not find ${paramKey}=${expected}`
+            };
+        }
+
+        if (assertType === "accountAllowList") {
+            if (scoped.length === 0) {
+                return {
+                    id: rule.id,
+                    description: rule.description,
+                    passed: false,
+                    details: "Provider did not fire."
+                };
+            }
+
+            const accountKey = this.getAccountColumnKey(scoped);
+            if (!accountKey) {
+                return {
+                    id: rule.id,
+                    description: rule.description,
+                    passed: false,
+                    details: "Provider has no account column mapping."
+                };
+            }
+
+            const expectedRaw = rule.assert?.expected;
+            const expectedValues = Array.isArray(expectedRaw)
+                ? expectedRaw
+                    .map((value) => String(value || "").trim())
+                    .filter((value) => value.length > 0)
+                : [];
+            const expectedSet = new Set(expectedValues);
+
+            const seenSet = new Set();
+            scoped.forEach((event) => {
+                const value = this.getParamValue(event, accountKey);
+                if (typeof value === "string" && value.trim().length > 0) {
+                    seenSet.add(value.trim());
+                }
+            });
+
+            const missing = Array.from(expectedSet).filter((value) => !seenSet.has(value));
+            const unexpected = Array.from(seenSet).filter((value) => !expectedSet.has(value));
+            const passed = missing.length === 0 && unexpected.length === 0;
+
+            return {
+                id: rule.id,
+                description: rule.description,
+                passed,
+                details: passed
+                    ? "All expected accounts fired and no unexpected accounts detected."
+                    : `Missing: ${missing.length > 0 ? missing.join(", ") : "none"} | Unexpected: ${unexpected.length > 0 ? unexpected.join(", ") : "none"}`
             };
         }
 
@@ -85,6 +138,46 @@ export class RuleEngine {
     }
 
     /**
+     * Get parameter value from event data safely.
+     *
+     * @param {Object} event Event object.
+     * @param {string} key Parameter key.
+     * @returns {string|undefined}
+     */
+    getParamValue(event, key) {
+        if (!key || !event || !Array.isArray(event?.parsed?.data)) {
+            return undefined;
+        }
+
+        const match = event.parsed.data.find((entry) => {
+            return entry && typeof entry === "object" && entry.key === key;
+        });
+
+        if (!match) {
+            return undefined;
+        }
+
+        return typeof match.value === "string" ? match.value : String(match.value);
+    }
+
+    /**
+     * Extract account column key from scoped events.
+     *
+     * @param {Array<Object>} providerEvents Provider events in scope.
+     * @returns {string|undefined}
+     */
+    getAccountColumnKey(providerEvents) {
+        for (const event of providerEvents) {
+            const accountKey = event?.parsed?.provider?.columns?.account;
+            if (typeof accountKey === "string" && accountKey.trim().length > 0) {
+                return accountKey;
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
      * Filter events by rule scope.
      *
      * @param {Object} rule Rule.
@@ -93,8 +186,9 @@ export class RuleEngine {
      * @returns {Array<Object>}
      */
     scopeEvents(rule, events, pages) {
-        const pageSet = new Set(pages.filter((page) => this.pageMatches(rule, page.url)).map((page) => page.url));
-        return events.filter((event) => pageSet.has(event.pageUrl));
+        const safePages = Array.isArray(pages) ? pages : [];
+        const pageSet = new Set(safePages.filter((page) => this.pageMatches(rule, page.url)).map((page) => page.url));
+        return (Array.isArray(events) ? events : []).filter((event) => pageSet.has(event?.pageUrl));
     }
 
     /**
@@ -105,6 +199,10 @@ export class RuleEngine {
      * @returns {boolean}
      */
     pageMatches(rule, url) {
+        if (typeof url !== "string") {
+            return false;
+        }
+
         const pathIncludes = rule.where?.pathIncludes;
         const pathExcludes = rule.where?.pathExcludes;
 

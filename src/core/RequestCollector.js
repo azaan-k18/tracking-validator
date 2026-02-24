@@ -8,9 +8,13 @@ export class RequestCollector {
      * Create a request collector.
      *
      * @param {import("./ProviderRegistry.js").ProviderRegistry} providerRegistry Registry.
+     * @param {{retainEvents?: boolean, onEvent?: Function, debug?: boolean}} options Collector options.
      */
-    constructor(providerRegistry) {
+    constructor(providerRegistry, options = {}) {
         this.providerRegistry = providerRegistry;
+        this.retainEvents = options.retainEvents ?? true;
+        this.onEvent = options.onEvent;
+        this.debug = options.debug ?? String(process.env.DEBUG || "").toLowerCase() === "true";
         this.events = [];
     }
 
@@ -21,8 +25,12 @@ export class RequestCollector {
      * @param {string} pageUrl Current page URL.
      */
     attach(page, pageUrl) {
-        page.on("request", async (request) => {
+        page.on("request", (request) => {
             const requestUrl = request.url();
+            const resourceType = request.resourceType();
+            if (this.debug) {
+                console.log(`[RequestCollector][${resourceType}] ${request.method()} ${requestUrl}`);
+            }
             let postData = "";
 
             if (request.method() !== "GET") {
@@ -34,16 +42,24 @@ export class RequestCollector {
                 return;
             }
 
-            this.events.push({
+            const event = {
                 timestamp: new Date().toISOString(),
                 pageUrl,
                 request: {
                     url: requestUrl,
                     method: request.method(),
-                    resourceType: request.resourceType()
+                    resourceType
                 },
                 parsed
-            });
+            };
+
+            if (this.retainEvents) {
+                this.events.push(event);
+            }
+
+            if (typeof this.onEvent === "function") {
+                this.onEvent(event);
+            }
         });
     }
 

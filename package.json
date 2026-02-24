@@ -8,12 +8,18 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "validate": "node scripts/validate-tracking.js",
-        "validate:debug": "DEBUG=true node scripts/validate-tracking.js"
+        "validate:debug": "DEBUG=true node scripts/validate-tracking.js",
+        "server": "node server/index.js"
     },
     "engines": {
         "node": ">=20"
     },
     "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^17.3.1",
+        "express": "^4.21.2",
+        "mongodb": "^6.13.0",
+        "nodemailer": "^6.10.1",
         "playwright": "^1.52.0"
     },
     "devDependencies": {
