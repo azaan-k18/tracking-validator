@@ -1,6 +1,11 @@
 export const sites = {
     indianexpress: {
-        startUrl: "https://indianexpress.com",
+        environments: {
+            prod: { startUrl: "https://indianexpress.com" },
+            develop: { startUrl: "https://indian-express-develop.go-vip.net" },
+            preprod: { startUrl: "https://preprod.indianexpress.com" },
+            prelaunch: { startUrl: "https://prelaunch.indianexpress.com" }
+        },
         crawl: {
             maxDepth: 1,
             maxUrls: 50,
@@ -15,7 +20,12 @@ export const sites = {
         }
     },
     financialexpress: {
-        startUrl: "https://financialexpress.com",
+        environments: {
+            prod: { startUrl: "https://financialexpress.com" },
+            develop: { startUrl: "https://indian-express-new-develop.go-vip.net" },
+            preprod: { startUrl: "https://preprod.financialexpress.com" },
+            prelaunch: { startUrl: "https://prelaunch.financialexpress.com" }
+        },
         crawl: {
             maxDepth: 1,
             maxUrls: 50,
@@ -28,7 +38,12 @@ export const sites = {
         }
     },
     loksatta: {
-        startUrl: "https://loksatta.com",
+        environments: {
+            prod: { startUrl: "https://loksatta.com" },
+            develop: { startUrl: "https://indianexpress-loksatta-develop.go-vip.net" },
+            preprod: { startUrl: "https://preprod.loksatta.com" },
+            prelaunch: { startUrl: "https://prelaunch.indianexpress.com" }
+        },
         crawl: {
             maxDepth: 1,
             maxUrls: 50,
@@ -44,7 +59,12 @@ export const sites = {
         }
     },
     jansatta: {
-        startUrl: "https://jansatta.com",
+        environments: {
+            prod: { startUrl: "https://jansatta.com" },
+            develop: { startUrl: "https://uat.jansatta.com" },
+            preprod: { startUrl: "https://jansatta.com" },
+            prelaunch: { startUrl: "https://jansatta.com" }
+        },
         crawl: {
             maxDepth: 1,
             maxUrls: 50,

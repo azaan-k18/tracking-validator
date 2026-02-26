@@ -8,8 +8,8 @@ const badgeVariants = cva(
         variants: {
             variant: {
                 default: "bg-secondary text-secondary-foreground",
-                success: "bg-success/20 text-green-300 border border-success/40",
-                danger: "bg-danger/20 text-red-300 border border-danger/40",
+                success: "bg-success/20 text-green-250 border border-success/40",
+                danger: "bg-danger/20 text-red-250 border border-danger/40",
                 warning: "bg-amber-500/20 text-amber-300 border border-amber-500/40"
             }
         },

@@ -54,7 +54,8 @@ export class MongoReportRepository extends ReportRepository {
             this.pages.createIndex({ runId: 1 }),
             this.ruleResults.createIndex({ runId: 1 }),
             this.runs.createIndex({ startedAt: -1 }),
-            this.runs.createIndex({ site: 1, startedAt: -1 })
+            this.runs.createIndex({ site: 1, startedAt: -1 }),
+            this.runs.createIndex({ site: 1, environment: 1, startedAt: -1 })
         ]);
     }
 
@@ -74,6 +75,7 @@ export class MongoReportRepository extends ReportRepository {
                 {
                     $set: {
                         site: meta.site || null,
+                        environment: meta.environment || "prod",
                         startedAt: meta.startedAt,
                         finishedAt: meta.finishedAt,
                         startUrl: meta.startUrl,
@@ -90,6 +92,7 @@ export class MongoReportRepository extends ReportRepository {
 
         const response = await this.runs.insertOne({
             site: meta.site || null,
+            environment: meta.environment || "prod",
             startedAt: meta.startedAt,
             finishedAt: meta.finishedAt || null,
             startUrl: meta.startUrl,
@@ -97,7 +100,8 @@ export class MongoReportRepository extends ReportRepository {
             eventsCaptured: meta.eventsCaptured || 0,
             rulesPassed: meta.rulesPassed || 0,
             rulesFailed: meta.rulesFailed || 0,
-            status: meta.status || "running"
+            status: meta.status || "running",
+            logs: Array.isArray(meta.logs) ? meta.logs : []
         });
 
         return response.insertedId.toString();
@@ -120,6 +124,7 @@ export class MongoReportRepository extends ReportRepository {
             this.pageBuffer.push({
                 runId,
                 site: page.site || null,
+                environment: page.environment || "prod",
                 url: page.url,
                 depth: page.depth,
                 eventCount: page.eventCount,
@@ -147,6 +152,7 @@ export class MongoReportRepository extends ReportRepository {
             this.eventBuffer.push({
                 runId,
                 site: event.site || null,
+                environment: event.environment || "prod",
                 pageUrl: event.pageUrl,
                 providerKey: event.providerKey,
                 timestamp: event.timestamp,
@@ -175,6 +181,7 @@ export class MongoReportRepository extends ReportRepository {
         const records = results.map((result) => ({
             runId,
             site: result.site || null,
+            environment: result.environment || "prod",
             ruleId: result.ruleId || result.id,
             provider: result.provider || null,
             passed: result.passed,

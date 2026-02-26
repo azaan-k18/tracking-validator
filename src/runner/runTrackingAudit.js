@@ -60,36 +60,92 @@ function buildProviderCounts(pageEvents) {
  * @returns {Set<string>}
  */
 function getPerPageRequiredProviders(rules) {
-    const providers = new Set();
+    const requirements = [];
     (rules || []).forEach((rule) => {
-        if (rule?.assert?.type === "existsPerPage" && rule?.provider) {
-            providers.add(String(rule.provider).toUpperCase());
+        const provider = String(rule?.provider || "").toUpperCase();
+        if (!provider) {
+            return;
+        }
+
+        if (rule?.assert?.type === "existsPerPage") {
+            requirements.push({
+                id: rule.id || `${provider}_EXISTS_PER_PAGE`,
+                provider,
+                where: rule.where
+            });
+        }
+
+        if (rule?.assert?.type === "exactlyOnePerPage" && rule?.assert?.paramKey && typeof rule?.assert?.expected !== "undefined") {
+            requirements.push({
+                id: rule.id || `${provider}_PARAM_REQUIRED`,
+                provider,
+                where: rule.where,
+                paramKey: rule.assert.paramKey,
+                expected: rule.assert.expected
+            });
         }
     });
-    return providers;
+    return requirements;
 }
 
 /**
- * Get missing required providers for a page.
+ * Determine whether page URL is in rule scope.
+ *
+ * @param {Object} ruleRequirement Requirement entry.
+ * @param {string} url Page URL.
+ * @returns {boolean}
+ */
+function pageMatchesRequirement(ruleRequirement, url) {
+    if (typeof url !== "string") {
+        return false;
+    }
+
+    const pathIncludes = ruleRequirement?.where?.pathIncludes;
+    const pathExcludes = ruleRequirement?.where?.pathExcludes;
+
+    if (pathIncludes && !new RegExp(pathIncludes).test(url)) {
+        return false;
+    }
+
+    if (pathExcludes && new RegExp(pathExcludes).test(url)) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Get missing required rule checks for a page.
  *
  * @param {Array<Object>} events All collected events.
  * @param {string} pageUrl Page URL.
- * @param {Set<string>} requiredProviders Required provider keys.
+ * @param {Array<Object>} requiredChecks Required checks.
  * @returns {Array<string>}
  */
-function getMissingProvidersForPage(events, pageUrl, requiredProviders) {
-    if (requiredProviders.size === 0) {
+function getMissingChecksForPage(events, pageUrl, requiredChecks) {
+    if (!Array.isArray(requiredChecks) || requiredChecks.length === 0) {
         return [];
     }
 
-    const seen = new Set(
-        events
-            .filter((event) => event.pageUrl === pageUrl)
-            .map((event) => String(event?.parsed?.provider?.key || "").toUpperCase())
-            .filter((provider) => provider.length > 0)
-    );
+    const pageEvents = events.filter((event) => event.pageUrl === pageUrl);
+    return requiredChecks
+        .filter((requirement) => pageMatchesRequirement(requirement, pageUrl))
+        .filter((requirement) => {
+            const providerEvents = pageEvents.filter((event) => {
+                return String(event?.parsed?.provider?.key || "").toUpperCase() === requirement.provider;
+            });
 
-    return Array.from(requiredProviders).filter((provider) => !seen.has(provider));
+            if (!requirement.paramKey) {
+                return providerEvents.length === 0;
+            }
+
+            return !providerEvents.some((event) => {
+                const param = (event?.parsed?.data || []).find((entry) => entry?.key === requirement.paramKey);
+                const value = param?.value;
+                return String(value || "") === String(requirement.expected);
+            });
+        })
+        .map((requirement) => String(requirement.id || requirement.provider));
 }
 
 /**
@@ -100,6 +156,8 @@ function getMissingProvidersForPage(events, pageUrl, requiredProviders) {
  */
 export async function runTrackingAudit(config) {
     const site = config.site || "unknown";
+    const environment = config.environment || "prod";
+    const externalRunId = typeof config.runId === "string" ? config.runId : "";
     const startedAt = new Date().toISOString();
     const repository = await createReportRepository(config.persistence, config.output);
 
@@ -114,7 +172,8 @@ export async function runTrackingAudit(config) {
     const crawler = new SiteCrawler(config.crawl || {});
     const providerRegistry = new ProviderRegistry(buildProviders(config.providers || []));
     const ruleEngine = new RuleEngine(config.rules || []);
-    const requiredPerPageProviders = getPerPageRequiredProviders(config.rules || []);
+    const requiredPerPageChecks = getPerPageRequiredProviders(config.rules || []);
+    const trackingWindowMs = config.runtime?.trackingWindowMs ?? 7000;
     const retryOnMissingProvider = config.runtime?.retryOnMissingProvider ?? true;
     const retryDelayMs = config.runtime?.retryDelayMs ?? 2000;
     const retryCount = config.runtime?.retryCount ?? 1;
@@ -141,6 +200,7 @@ export async function runTrackingAudit(config) {
             allEvents.push(event);
             const normalizedEvent = {
                 site,
+                environment,
                 ...normalizeEvent(event)
             };
             queueWrite(repository.saveEvents([normalizedEvent], runId));
@@ -151,7 +211,9 @@ export async function runTrackingAudit(config) {
 
     try {
         runId = await repository.saveRun({
+            runId: externalRunId || undefined,
             site,
+            environment,
             startedAt,
             finishedAt: null,
             startUrl: config.startUrl,
@@ -169,21 +231,22 @@ export async function runTrackingAudit(config) {
             collector.attach(page, target.url);
 
             try {
-                await page.goto(target.url, { waitUntil: "commit", timeout: 4000 });
+                await page.goto(target.url, { waitUntil: "domcontentloaded", timeout: 30000 });
                 await page.waitForTimeout(config.runtime?.settleMs ?? 1000);
+                await page.waitForTimeout(trackingWindowMs);
 
-                if (retryOnMissingProvider && retryCount > 0 && requiredPerPageProviders.size > 0) {
-                    let missingProviders = getMissingProvidersForPage(allEvents, target.url, requiredPerPageProviders);
+                if (retryOnMissingProvider && retryCount > 0 && requiredPerPageChecks.length > 0) {
+                    let missingChecks = getMissingChecksForPage(allEvents, target.url, requiredPerPageChecks);
                     let attempt = 0;
 
-                    while (missingProviders.length > 0 && attempt < retryCount) {
+                    while (missingChecks.length > 0 && attempt < retryCount) {
                         attempt += 1;
                         if (debug) {
-                            console.log(`[Retry][${site}] ${target.url} missing providers: ${missingProviders.join(", ")}. Retrying in ${retryDelayMs}ms (attempt ${attempt}/${retryCount})`);
+                            console.log(`[Retry][${site}] ${target.url} missing checks: ${missingChecks.join(", ")}. Retrying in ${retryDelayMs}ms (attempt ${attempt}/${retryCount})`);
                         }
 
                         await page.waitForTimeout(retryDelayMs);
-                        missingProviders = getMissingProvidersForPage(allEvents, target.url, requiredPerPageProviders);
+                        missingChecks = getMissingChecksForPage(allEvents, target.url, requiredPerPageChecks);
                     }
                 }
             } catch {
@@ -196,6 +259,7 @@ export async function runTrackingAudit(config) {
             queueWrite(repository.savePages([
                 {
                     site,
+                    environment,
                     url: target.url,
                     depth: target.depth,
                     eventCount: pageEvents.length,
@@ -215,6 +279,7 @@ export async function runTrackingAudit(config) {
             const sourceRule = (config.rules || []).find((rule) => rule.id === result.id);
             return {
                 site,
+                environment,
                 ruleId: result.id,
                 provider: sourceRule?.provider || null,
                 passed: result.passed,
@@ -257,6 +322,7 @@ export async function runTrackingAudit(config) {
         await repository.saveRun({
             runId,
             site,
+            environment,
             startedAt,
             finishedAt,
             startUrl: config.startUrl,
@@ -274,6 +340,7 @@ export async function runTrackingAudit(config) {
                 meta: {
                     runId,
                     site,
+                    environment,
                     startedAt,
                     finishedAt,
                     startUrl: config.startUrl,
@@ -295,6 +362,7 @@ export async function runTrackingAudit(config) {
             await repository.saveRun({
                 runId,
                 site,
+                environment,
                 startedAt,
                 finishedAt: failedAt,
                 startUrl: config.startUrl,

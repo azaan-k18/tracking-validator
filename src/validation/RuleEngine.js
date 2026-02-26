@@ -129,6 +129,85 @@ export class RuleEngine {
             };
         }
 
+        if (assertType === "exactlyOnePerPage") {
+            const scopedPages = Array.isArray(pages) ? pages : [];
+            const matchingPages = scopedPages.filter((page) => this.pageMatches(rule, page.url));
+            const expectedCount = Number.isInteger(rule.assert?.expectedCount) && rule.assert.expectedCount > 0
+                ? rule.assert.expectedCount
+                : 1;
+            const paramKey = rule.assert?.paramKey;
+            const expectedValue = rule.assert?.expected;
+
+            const violations = matchingPages
+                .map((page) => {
+                    const count = scoped.filter((event) => {
+                        if (event?.pageUrl !== page.url) {
+                            return false;
+                        }
+
+                        if (!paramKey) {
+                            return true;
+                        }
+
+                        return this.getParamValue(event, paramKey) === expectedValue;
+                    }).length;
+
+                    return {
+                        url: page.url,
+                        count
+                    };
+                })
+                .filter((entry) => entry.count !== expectedCount);
+
+            const missing = violations.filter((entry) => entry.count === 0).map((entry) => entry.url);
+            const duplicate = violations.filter((entry) => entry.count > expectedCount);
+
+            const isGa4PageViewRule = providerKey === "GOOGLEANALYTICS4" && paramKey === "en" && expectedValue === "page_view";
+
+            if (violations.length === 0) {
+                return {
+                    id: rule.id,
+                    description: rule.description,
+                    passed: true,
+                    details: "All pages satisfy rule"
+                };
+            }
+
+            if (isGa4PageViewRule && missing.length > 0 && duplicate.length === 0) {
+                return {
+                    id: rule.id,
+                    description: rule.description,
+                    passed: false,
+                    details: `GA4 page_view did not fire within 7 seconds. Missing on: ${missing.join(", ")}`
+                };
+            }
+
+            if (isGa4PageViewRule && duplicate.length === 1 && missing.length === 0) {
+                return {
+                    id: rule.id,
+                    description: rule.description,
+                    passed: false,
+                    details: `Multiple GA4 page_view events detected (${duplicate[0].count}). Expected exactly 1.`
+                };
+            }
+
+            const detailParts = [];
+            if (missing.length > 0) {
+                detailParts.push(`Missing on: ${missing.join(", ")}`);
+            }
+            if (duplicate.length > 0) {
+                const duplicateDetails = duplicate.map((entry) => `${entry.url} (${entry.count})`).join(", ");
+                detailParts.push(`Duplicates on: ${duplicateDetails}`);
+            }
+
+            return {
+                id: rule.id,
+                description: rule.description,
+                passed: false,
+                details: detailParts.join(" | ")
+            };
+        }
+
         return {
             id: rule.id,
             description: rule.description,

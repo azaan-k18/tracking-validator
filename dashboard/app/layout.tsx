@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
 import "@/styles/globals.css";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { Header } from "@/components/layout/Header";
+import { Navbar } from "@/components/layout/Navbar";
+import { AppProviders } from "@/context/AppProviders";
 
 export const metadata: Metadata = {
     title: "Express Tracking Validator",
     description: "Dashboard for tracking validator runs"
 };
+
+const themeInitScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('tracking-validator-theme');
+    if (stored === 'light') {
+      document.documentElement.classList.add('theme-light');
+    } else {
+      document.documentElement.classList.remove('theme-light');
+    }
+  } catch (e) {}
+})();
+`;
 
 /**
  * Root application layout.
@@ -16,17 +30,16 @@ export const metadata: Metadata = {
  */
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>): JSX.Element {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+            </head>
             <body>
-                <ThemeProvider>
-                    <header className="dashboard-header">
-                        <div className="dashboard-header-inner">
-                            <h1 className="dashboard-title">Tracking Validator</h1>
-                            <ThemeToggle />
-                        </div>
-                    </header>
+                <AppProviders>
+                    <Header />
+                    <Navbar />
                     {children}
-                </ThemeProvider>
+                </AppProviders>
             </body>
         </html>
     );

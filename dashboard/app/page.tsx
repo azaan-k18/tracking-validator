@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { RunsDashboard } from "@/components/RunsDashboard";
+import { BuildNowCard } from "@/components/widgets/BuildNowCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { getRuns } from "@/services/api";
+import { useDomain } from "@/context/DomainContext";
+import { useEnvironment } from "@/context/EnvironmentContext";
 import type { RunRecord } from "@/lib/types";
 
 /**
@@ -13,9 +16,11 @@ import type { RunRecord } from "@/lib/types";
  */
 export default function HomePage(): JSX.Element {
     const [runs, setRuns] = useState<RunRecord[]>([]);
-    const [selectedSite, setSelectedSite] = useState("all");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const { domain } = useDomain();
+    const { environment } = useEnvironment();
 
     useEffect(() => {
         let mounted = true;
@@ -24,7 +29,7 @@ export default function HomePage(): JSX.Element {
             try {
                 setLoading(true);
                 setError(null);
-                const data = await getRuns(selectedSite);
+                const data = await getRuns(domain, environment);
                 if (mounted) {
                     setRuns(data);
                 }
@@ -43,11 +48,12 @@ export default function HomePage(): JSX.Element {
         return () => {
             mounted = false;
         };
-    }, [selectedSite]);
+    }, [domain, environment]);
 
     if (loading) {
         return (
             <main className="dashboard-container">
+                <BuildNowCard />
                 <Card>
                     <CardContent className="py-10 text-center text-muted-foreground">Loading runs...</CardContent>
                 </Card>
@@ -58,12 +64,18 @@ export default function HomePage(): JSX.Element {
     if (error) {
         return (
             <main className="dashboard-container">
+                <BuildNowCard />
                 <Card>
-                    <CardContent className="py-10 text-center text-red-300">{error}</CardContent>
+                    <CardContent className="py-10 text-center text-red-250">{error}</CardContent>
                 </Card>
             </main>
         );
     }
 
-    return <RunsDashboard runs={runs} selectedSite={selectedSite} onSiteChange={setSelectedSite} />;
+    return (
+        <main className="dashboard-container">
+            <BuildNowCard />
+            <RunsDashboard runs={runs} selectedDomain={domain} selectedEnvironment={environment} />
+        </main>
+    );
 }

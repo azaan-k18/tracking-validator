@@ -10,9 +10,42 @@ export class GoogleAnalytics4Provider extends BaseProvider {
     constructor() {
         super();
         this._key = "GOOGLEANALYTICS4";
-        this._pattern = /\/g\/collect/i;
+        this._pattern = /analytics\.google\.com\/g\/collect/i;
         this._name = "Google Analytics 4";
         this._type = "analytics";
+    }
+
+    /**
+     * Check whether URL is a GA4 page_view request.
+     *
+     * @param {string} rawUrl Request URL.
+     * @returns {boolean}
+     */
+    checkUrl(rawUrl) {
+        try {
+            const parsed = new URL(rawUrl);
+            const host = parsed.hostname.toLowerCase();
+            const path = parsed.pathname.toLowerCase();
+            const params = parsed.searchParams;
+            const tid = String(params.get("tid") || "").trim();
+            const eventName = String(params.get("en") || "").trim().toLowerCase();
+
+            if (host !== "analytics.google.com" && host !== "www.google-analytics.com") {
+                return false;
+            }
+
+            if (!path.includes("/g/collect")) {
+                return false;
+            }
+
+            if (!/^G-[A-Z0-9]+$/i.test(tid)) {
+                return false;
+            }
+
+            return eventName === "page_view";
+        } catch {
+            return false;
+        }
     }
 
     get columnMapping() {

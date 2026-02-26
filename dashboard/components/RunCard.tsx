@@ -2,9 +2,12 @@ import Link from "next/link";
 import type { RunRecord } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateTime } from "@/utils/dateFormat";
 
 interface RunCardProps {
     run: RunRecord;
+    selectedDomain: string;
+    selectedEnvironment: string;
 }
 
 /**
@@ -31,15 +34,25 @@ function getRunState(run: RunRecord): { label: string; variant: "success" | "dan
  * @param props Run card props.
  * @returns {JSX.Element}
  */
-export function RunCard({ run }: RunCardProps): JSX.Element {
+export function RunCard({ run, selectedDomain, selectedEnvironment }: RunCardProps): JSX.Element {
     const state = getRunState(run);
 
     return (
-        <Link href={`/runs/${run._id}`} className="block">
+        <Link
+            href={{
+                pathname: `/runs/${run._id}`,
+                query: {
+                    site: selectedDomain,
+                    environment: selectedEnvironment
+                }
+            }}
+            prefetch
+            className="block"
+        >
             <Card className="run-card">
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between gap-3">
-                        <CardTitle className="line-clamp-1 text-sm font-medium text-muted-foreground">{new Date(run.startedAt).toLocaleString()}</CardTitle>
+                        <CardTitle className="line-clamp-1 text-sm font-medium text-muted-foreground">{formatDateTime(run.startedAt)}</CardTitle>
                         <Badge variant={state.variant}>{state.label}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">Site: {run.site || "unknown"}</p>
@@ -55,11 +68,11 @@ export function RunCard({ run }: RunCardProps): JSX.Element {
                     </div>
                     <div>
                         <p className="text-muted-foreground">Rules Passed</p>
-                        <p className="text-lg font-semibold text-green-300">{run.rulesPassed}</p>
+                        <p className="text-lg font-semibold text-green-250">{run.rulesPassed}</p>
                     </div>
                     <div>
                         <p className="text-muted-foreground">Rules Failed</p>
-                        <p className="text-lg font-semibold text-red-300">{run.rulesFailed}</p>
+                        <p className="text-lg font-semibold text-red-250">{run.rulesFailed}</p>
                     </div>
                 </CardContent>
             </Card>

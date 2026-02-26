@@ -23,6 +23,7 @@ export default {
     runtime: {
         headless: true,
         settleMs: 1200,
+        trackingWindowMs: 7000,
         retryOnMissingProvider: true,
         retryDelayMs: 2000,
         retryCount: 1
@@ -81,6 +82,17 @@ export default {
             assert: {
                 type: "accountAllowList",
                 expected: ["G-HEQWL2KPC5"]
+            }
+        },
+        {
+            id: "GA4_PAGE_VIEW_PER_PAGE",
+            description: "GA4 page_view should fire exactly once per crawled page",
+            provider: "GOOGLEANALYTICS4",
+            assert: {
+                type: "exactlyOnePerPage",
+                expectedCount: 1,
+                paramKey: "en",
+                expected: "page_view"
             }
         },
         {

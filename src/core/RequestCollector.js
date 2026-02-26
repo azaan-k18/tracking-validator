@@ -26,7 +26,7 @@ export class RequestCollector {
      */
     attach(page, pageUrl) {
         page.on("request", (request) => {
-            const requestUrl = request.url();
+            const requestUrl = this.normalizeUrl(request.url());
             const resourceType = request.resourceType();
             if (this.debug) {
                 console.log(`[RequestCollector][${resourceType}] ${request.method()} ${requestUrl}`);
@@ -61,6 +61,22 @@ export class RequestCollector {
                 this.onEvent(event);
             }
         });
+    }
+
+    /**
+     * Normalize URL for provider parsing.
+     *
+     * @param {string} rawUrl Raw request URL.
+     * @returns {string}
+     */
+    normalizeUrl(rawUrl) {
+        try {
+            const parsed = new URL(rawUrl);
+            parsed.hash = "";
+            return parsed.toString();
+        } catch {
+            return rawUrl;
+        }
     }
 
     /**

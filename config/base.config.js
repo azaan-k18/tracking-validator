@@ -1,9 +1,12 @@
 import { sites } from "./sites.js";
 
+export const ALLOWED_ENVIRONMENTS = ["prod", "develop", "preprod", "prelaunch"];
+
 const baseConfig = {
     runtime: {
         headless: true,
         settleMs: 1200,
+        trackingWindowMs: 7000,
         retryOnMissingProvider: true,
         retryDelayMs: 2000,
         retryCount: 1
@@ -35,6 +38,17 @@ const baseRules = [
             type: "existsPerPage",
             minCount: 1
         }
+    },
+    {
+        id: "GA4_PAGE_VIEW_PER_PAGE",
+        description: "GA4 page_view should fire exactly once per crawled page",
+        provider: "GOOGLEANALYTICS4",
+        assert: {
+            type: "exactlyOnePerPage",
+            expectedCount: 1,
+            paramKey: "en",
+            expected: "page_view"
+        }
     }
 ];
 
@@ -59,12 +73,58 @@ function buildAccountAllowListRules(expectedAccounts) {
 }
 
 /**
+ * Keep only rules relevant for configured providers.
+ *
+ * @param {Array<Object>} rules Base rules.
+ * @param {Set<string>} providerSet Enabled providers.
+ * @returns {Array<Object>}
+ */
+function filterRulesByProvider(rules, providerSet) {
+    return (rules || []).filter((rule) => {
+        const provider = String(rule?.provider || "").toUpperCase();
+        return provider.length > 0 && providerSet.has(provider);
+    });
+}
+
+/**
  * Build runtime config for a site key.
  *
  * @param {string} siteKey Site key from registry.
  * @returns {Object}
  */
 export function buildConfigForSite(siteKey) {
+    return buildConfigForSiteAndEnvironment(siteKey, "prod");
+}
+
+/**
+ * Resolve start URL for site/environment with prod fallback.
+ *
+ * @param {Object} site Site config.
+ * @param {string} environment Environment key.
+ * @returns {string}
+ */
+function resolveStartUrl(site, environment) {
+    const resolvedEnvironment = ALLOWED_ENVIRONMENTS.includes(environment) ? environment : "prod";
+    const environmentUrl = site?.environments?.[resolvedEnvironment]?.startUrl;
+    const prodUrl = site?.environments?.prod?.startUrl;
+    const legacyUrl = site?.startUrl;
+    const startUrl = environmentUrl || prodUrl || legacyUrl;
+
+    if (!startUrl) {
+        throw new Error("No startUrl configured for site/environment.");
+    }
+
+    return startUrl;
+}
+
+/**
+ * Build runtime config for a site key and environment.
+ *
+ * @param {string} siteKey Site key from registry.
+ * @param {string} environment Environment key.
+ * @returns {Object}
+ */
+export function buildConfigForSiteAndEnvironment(siteKey, environment = "prod") {
     const site = sites[siteKey];
     if (!site) {
         throw new Error(`Unknown site key: ${siteKey}`);
@@ -76,18 +136,20 @@ export function buildConfigForSite(siteKey) {
         "COMSCORE",
         ...Object.keys(site.expectedAccounts || {})
     ]));
+    const providerSet = new Set(providers.map((provider) => String(provider).toUpperCase()));
 
     return {
         ...baseConfig,
         site: siteKey,
-        startUrl: site.startUrl,
+        environment: ALLOWED_ENVIRONMENTS.includes(environment) ? environment : "prod",
+        startUrl: resolveStartUrl(site, environment),
         providers,
         crawl: {
             ...baseConfig.crawl,
             ...(site.crawl || {}),
             include: siteIncludes
         },
-        rules: [...baseRules, ...dynamicRules]
+        rules: [...filterRulesByProvider(baseRules, providerSet), ...dynamicRules]
     };
 }
 
