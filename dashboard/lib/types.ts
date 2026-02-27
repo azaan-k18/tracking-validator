@@ -1,4 +1,4 @@
-export type RunStatus = "completed" | "failed" | "running" | string;
+export type RunStatus = "completed" | "failed" | "running" | "stopped" | string;
 
 export interface RunRecord {
     _id: string;

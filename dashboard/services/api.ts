@@ -120,14 +120,36 @@ export async function getRunLogs(
     site?: string,
     environment?: string,
     limit = 500
-): Promise<{ logs: Array<{ timestamp: string; message: string; isError?: boolean; source?: string }>; status: string }> {
+): Promise<{ logs: Array<{ timestamp: string; stage?: string; message: string; isError?: boolean; source?: string }>; status: string }> {
     const params = {
         ...(buildFilters(site, environment) || {}),
         limit: String(limit)
     };
-    const response = await api.get<{ logs: Array<{ timestamp: string; message: string; isError?: boolean; source?: string }>; status: string }>(
+    const response = await api.get<{ logs: Array<{ timestamp: string; stage?: string; message: string; isError?: boolean; source?: string }>; status: string }>(
         `/api/runs/${id}/logs`,
         { params }
     );
+    return response.data;
+}
+
+/**
+ * Stop a running build.
+ *
+ * @param id Run id.
+ * @returns {Promise<{status: string}>}
+ */
+export async function stopRun(id: string): Promise<{ status: string }> {
+    const response = await api.post<{ status: string }>(`/api/runs/${id}/stop`);
+    return response.data;
+}
+
+/**
+ * Delete a run and related data.
+ *
+ * @param id Run id.
+ * @returns {Promise<{status: string}>}
+ */
+export async function deleteRun(id: string): Promise<{ status: string }> {
+    const response = await api.delete<{ status: string }>(`/api/runs/${id}`);
     return response.data;
 }
