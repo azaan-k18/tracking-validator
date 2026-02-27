@@ -29,6 +29,7 @@ async function startServer() {
     const ruleResults = db.collection("ruleResults");
     const buildJobs = db.collection("buildJobs");
     const runningBuilds = new Set();
+    const activeBuilds = new Map();
 
     await Promise.all([
         runs.createIndex({ site: 1, environment: 1, startedAt: -1 }),
@@ -53,12 +54,15 @@ async function startServer() {
      * Normalize run status for API clients.
      *
      * @param {string} status Raw run status.
-     * @returns {"RUNNING"|"SUCCESS"|"FAILED"}
+     * @returns {"RUNNING"|"SUCCESS"|"FAILED"|"STOPPED"}
      */
     function normalizeRunStatus(status) {
         const value = String(status || "").toLowerCase();
         if (value === "running") {
             return "RUNNING";
+        }
+        if (value === "stopped") {
+            return "STOPPED";
         }
         if (value === "completed") {
             return "SUCCESS";
@@ -123,19 +127,21 @@ async function startServer() {
     }
 
     /**
-     * Append log lines to run with capped history.
+     * Append structured log lines to run with capped history.
      *
      * @param {ObjectId} runObjectId Run identifier.
+     * @param {string} stage Log stage.
      * @param {string[]} lines Log lines.
      * @param {"stdout"|"stderr"|"system"} source Log source.
      * @returns {Promise<void>}
      */
-    async function appendRunLogs(runObjectId, lines, source = "system") {
+    async function appendRunLogs(runObjectId, stage, lines, source = "system") {
         const entries = (Array.isArray(lines) ? lines : [])
             .map((line) => String(line || "").trim())
             .filter((line) => line.length > 0)
             .map((message) => ({
                 timestamp: new Date(),
+                stage,
                 message,
                 source,
                 isError: source === "stderr"
@@ -157,6 +163,69 @@ async function startServer() {
             }
         );
     }
+
+    /**
+     * Append one structured log line.
+     *
+     * @param {ObjectId} runObjectId Run identifier.
+     * @param {string} stage Log stage.
+     * @param {string} message Log message.
+     * @param {boolean} isError Error flag.
+     * @returns {Promise<void>}
+     */
+    async function appendLog(runObjectId, stage, message, isError = false) {
+        const source = isError ? "stderr" : "system";
+        await appendRunLogs(runObjectId, isError ? "ERROR" : stage, [message], source);
+    }
+
+    /**
+     * Mark orphaned running builds as failed on boot.
+     *
+     * @returns {Promise<void>}
+     */
+    async function recoverStuckRuns() {
+        const stuckRuns = await runs.find({ status: "running" }, { projection: { _id: 1 } }).toArray();
+        if (stuckRuns.length === 0) {
+            return;
+        }
+
+        const now = new Date();
+        const ids = stuckRuns.map((run) => run._id);
+
+        await runs.updateMany(
+            { _id: { $in: ids } },
+            {
+                $set: {
+                    status: "failed",
+                    finishedAt: now.toISOString()
+                }
+            }
+        );
+
+        await Promise.all(ids.map((id) => appendLog(id, "ERROR", "Build terminated due to server shutdown or crash.", true)));
+    }
+
+    await recoverStuckRuns();
+
+    /**
+     * Kill all active child builds during server shutdown.
+     */
+    function cleanupActiveBuilds() {
+        for (const [, child] of activeBuilds.entries()) {
+            try {
+                if (!child.killed) {
+                    child.kill("SIGTERM");
+                }
+            } catch (error) {
+                console.error("Failed to terminate child process during shutdown", error);
+            }
+        }
+        activeBuilds.clear();
+        runningBuilds.clear();
+    }
+
+    process.on("SIGTERM", cleanupActiveBuilds);
+    process.on("SIGINT", cleanupActiveBuilds);
 
     /**
      * Check whether caller is from local/private network.
@@ -350,22 +419,23 @@ async function startServer() {
                 env: process.env,
                 stdio: ["ignore", "pipe", "pipe"]
             });
+            activeBuilds.set(runId, child);
 
             let stdout = "";
             let stderr = "";
             let stdoutRemainder = "";
             let stderrRemainder = "";
             let logQueue = Promise.resolve();
-            const queueLogAppend = (lines, source) => {
+            const queueLogAppend = (stage, lines, source) => {
                 logQueue = logQueue
-                    .then(() => appendRunLogs(runObjectId, lines, source))
+                    .then(() => appendRunLogs(runObjectId, stage, lines, source))
                     .catch((error) => {
                         console.error("Failed to append run logs", error);
                     });
                 return logQueue;
             };
 
-            await queueLogAppend([`Build started for ${domain}/${environment}`], "system");
+            await queueLogAppend("INIT", [`Starting validation for domain=${domain} env=${environment}`], "system");
 
             child.stdout.on("data", (chunk) => {
                 const text = chunk.toString();
@@ -373,7 +443,7 @@ async function startServer() {
                 const combined = `${stdoutRemainder}${text}`;
                 const lines = combined.split(/\r?\n/);
                 stdoutRemainder = lines.pop() || "";
-                queueLogAppend(lines, "stdout");
+                queueLogAppend("PROCESS", lines, "stdout");
             });
 
             child.stderr.on("data", (chunk) => {
@@ -382,23 +452,24 @@ async function startServer() {
                 const combined = `${stderrRemainder}${text}`;
                 const lines = combined.split(/\r?\n/);
                 stderrRemainder = lines.pop() || "";
-                queueLogAppend(lines, "stderr");
+                queueLogAppend("ERROR", lines, "stderr");
             });
 
-            child.on("close", async (code) => {
+            child.on("close", async (code, signal) => {
                 const finishedAt = new Date().toISOString();
-                const status = code === 0 ? "SUCCESS" : "FAILED";
+                const status = signal === "SIGTERM" ? "STOPPED" : code === 0 ? "SUCCESS" : "FAILED";
                 runningBuilds.delete(lockKey);
+                activeBuilds.delete(runId);
                 try {
-                    await queueLogAppend([stdoutRemainder], "stdout");
-                    await queueLogAppend([stderrRemainder], "stderr");
-                    await queueLogAppend([`Build finished with exit code ${code ?? -1}`], "system");
+                    await queueLogAppend("PROCESS", [stdoutRemainder], "stdout");
+                    await queueLogAppend("ERROR", [stderrRemainder], "stderr");
+                    await queueLogAppend("COMPLETE", [`Build finished with exit code ${code ?? -1}${signal ? ` (signal ${signal})` : ""}`], "system");
                     await logQueue;
                     await runs.updateOne(
-                        { _id: runObjectId },
+                        { _id: runObjectId, status: "running" },
                         {
                             $set: {
-                                status: code === 0 ? "completed" : "failed",
+                                status: status === "SUCCESS" ? "completed" : status === "STOPPED" ? "stopped" : "failed",
                                 finishedAt
                             }
                         }
@@ -422,11 +493,12 @@ async function startServer() {
             child.on("error", async (error) => {
                 const finishedAt = new Date().toISOString();
                 runningBuilds.delete(lockKey);
+                activeBuilds.delete(runId);
                 try {
-                    await queueLogAppend([`Build process error: ${error.message}`], "stderr");
+                    await queueLogAppend("ERROR", [`Build process error: ${error.message}`], "stderr");
                     await logQueue;
                     await runs.updateOne(
-                        { _id: runObjectId },
+                        { _id: runObjectId, status: "running" },
                         {
                             $set: {
                                 status: "failed",
@@ -449,7 +521,95 @@ async function startServer() {
                 }
             });
 
-            response.json({ status: "started" });
+            response.json({ status: "started", runId });
+        } catch (error) {
+            response.status(400).json({ error: error.message });
+        }
+    });
+
+    app.post("/api/runs/:id/stop", async (request, response) => {
+        try {
+            const id = parseRunId(request.params.id);
+            const run = await runs.findOne({ _id: id }, { projection: { status: 1, site: 1, environment: 1 } });
+            if (!run) {
+                response.status(404).json({ error: "Run not found" });
+                return;
+            }
+
+            if (String(run.status || "").toLowerCase() !== "running") {
+                response.status(409).json({ error: "Run is not currently running." });
+                return;
+            }
+
+            const runId = request.params.id;
+            const child = activeBuilds.get(runId);
+            if (child && !child.killed) {
+                child.kill("SIGTERM");
+            }
+
+            const finishedAt = new Date().toISOString();
+            await runs.updateOne(
+                { _id: id },
+                {
+                    $set: {
+                        status: "stopped",
+                        finishedAt
+                    }
+                }
+            );
+            await appendLog(id, "STOP", "Build manually stopped by user.");
+
+            if (run.site && run.environment) {
+                runningBuilds.delete(`${run.site}:${run.environment}`);
+            }
+            activeBuilds.delete(runId);
+
+            await buildJobs.updateMany(
+                { runId, status: "RUNNING" },
+                {
+                    $set: {
+                        status: "STOPPED",
+                        finishedAt
+                    }
+                }
+            );
+
+            response.json({ status: "stopped" });
+        } catch (error) {
+            response.status(400).json({ error: error.message });
+        }
+    });
+
+    app.delete("/api/runs/:id", async (request, response) => {
+        try {
+            const id = parseRunId(request.params.id);
+            const run = await runs.findOne({ _id: id }, { projection: { status: 1, site: 1, environment: 1 } });
+            if (!run) {
+                response.status(404).json({ error: "Run not found" });
+                return;
+            }
+
+            const runId = request.params.id;
+            if (String(run.status || "").toLowerCase() === "running") {
+                const child = activeBuilds.get(runId);
+                if (child && !child.killed) {
+                    child.kill("SIGTERM");
+                }
+                if (run.site && run.environment) {
+                    runningBuilds.delete(`${run.site}:${run.environment}`);
+                }
+                activeBuilds.delete(runId);
+            }
+
+            await Promise.all([
+                pages.deleteMany({ runId }),
+                events.deleteMany({ runId }),
+                ruleResults.deleteMany({ runId }),
+                buildJobs.deleteMany({ runId }),
+                runs.deleteOne({ _id: id })
+            ]);
+
+            response.json({ status: "deleted" });
         } catch (error) {
             response.status(400).json({ error: error.message });
         }

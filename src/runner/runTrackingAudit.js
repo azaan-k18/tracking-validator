@@ -159,15 +159,28 @@ export async function runTrackingAudit(config) {
     const environment = config.environment || "prod";
     const externalRunId = typeof config.runId === "string" ? config.runId : "";
     const startedAt = new Date().toISOString();
+    const logLine = (stage, message, isError = false) => {
+        const prefix = `[${isError ? "ERROR" : stage}] ${message}`;
+        if (isError) {
+            console.error(prefix);
+        } else {
+            console.log(prefix);
+        }
+    };
+
+    logLine("INIT", `Starting validation for domain=${site} env=${environment}`);
     const repository = await createReportRepository(config.persistence, config.output);
 
+    logLine("BROWSER", "Launching Playwright browser");
     const browser = await chromium.launch({
         headless: config.runtime?.headless ?? true
     });
+    logLine("BROWSER", "Browser launched successfully");
 
     const context = await browser.newContext({
         userAgent: config.runtime?.userAgent || undefined
     });
+    logLine("BROWSER", "Context created");
 
     const crawler = new SiteCrawler(config.crawl || {});
     const providerRegistry = new ProviderRegistry(buildProviders(config.providers || []));
@@ -223,17 +236,25 @@ export async function runTrackingAudit(config) {
             rulesFailed: 0,
             status: "running"
         });
+        logLine("DB", `Run initialized with id=${runId}`);
 
+        logLine("CRAWLER", `Starting crawl at ${config.startUrl}`);
         const urls = await crawler.crawl(config.startUrl, async () => context.newPage());
+        logLine("CRAWLER", `Discovered ${urls.length} URLs`);
 
-        for (const target of urls) {
+        for (let index = 0; index < urls.length; index += 1) {
+            const target = urls[index];
             const page = await context.newPage();
             collector.attach(page, target.url);
+            logLine("CRAWLER", `Crawling page ${index + 1}/${urls.length}: ${target.url}`);
 
             try {
                 await page.goto(target.url, { waitUntil: "domcontentloaded", timeout: 30000 });
+                logLine("CRAWLER", "DOMContentLoaded reached");
                 await page.waitForTimeout(config.runtime?.settleMs ?? 1000);
+                logLine("TRACKING", `Waiting settle window ${config.runtime?.settleMs ?? 1000}ms`);
                 await page.waitForTimeout(trackingWindowMs);
+                logLine("TRACKING", `Waiting tracking window ${trackingWindowMs}ms`);
 
                 if (retryOnMissingProvider && retryCount > 0 && requiredPerPageChecks.length > 0) {
                     let missingChecks = getMissingChecksForPage(allEvents, target.url, requiredPerPageChecks);
@@ -241,21 +262,21 @@ export async function runTrackingAudit(config) {
 
                     while (missingChecks.length > 0 && attempt < retryCount) {
                         attempt += 1;
-                        if (debug) {
-                            console.log(`[Retry][${site}] ${target.url} missing checks: ${missingChecks.join(", ")}. Retrying in ${retryDelayMs}ms (attempt ${attempt}/${retryCount})`);
-                        }
+                        logLine("TRACKING", `${target.url} missing checks: ${missingChecks.join(", ")}. Retrying in ${retryDelayMs}ms (attempt ${attempt}/${retryCount})`);
 
                         await page.waitForTimeout(retryDelayMs);
                         missingChecks = getMissingChecksForPage(allEvents, target.url, requiredPerPageChecks);
                     }
                 }
             } catch {
+                logLine("ERROR", `Failed to process page ${target.url}`, true);
                 // Continue if page fails.
             } finally {
                 await page.close();
             }
 
             const pageEvents = allEvents.filter((event) => event.pageUrl === target.url);
+            logLine("TRACKING", `Captured ${pageEvents.length} tracking requests on page`);
             queueWrite(repository.savePages([
                 {
                     site,
@@ -266,11 +287,16 @@ export async function runTrackingAudit(config) {
                     providerCounts: buildProviderCounts(pageEvents)
                 }
             ], runId));
+            logLine("CRAWLER", "Moving to next page");
         }
 
+        logLine("CRAWLER", "Crawl completed");
+
         await Promise.all(Array.from(pendingWrites));
+        logLine("DB", "Event/page batches flushed");
 
         const results = ruleEngine.evaluate(allEvents, urls);
+        logLine("VALIDATION", `Evaluating ${results.length} rules`);
         const failed = results.filter((entry) => !entry.passed).length;
         const passed = results.length - failed;
         const finishedAt = new Date().toISOString();
@@ -288,6 +314,16 @@ export async function runTrackingAudit(config) {
         });
 
         await repository.saveRuleResults(ruleRecords, runId);
+        results.forEach((result) => {
+            const sourceRule = (config.rules || []).find((rule) => rule.id === result.id);
+            const provider = sourceRule?.provider || "UNKNOWN";
+            const stageMessage = `${provider} ${result.passed ? "PASS" : "FAIL"} - ${result.details}`;
+            if (result.passed) {
+                logLine("VALIDATION", stageMessage);
+            } else {
+                logLine("ERROR", stageMessage, true);
+            }
+        });
 
         if (failed > 0) {
             try {
@@ -332,8 +368,10 @@ export async function runTrackingAudit(config) {
             rulesFailed: failed,
             status: "completed"
         });
+        logLine("DB", "Run summary stored successfully");
 
         const output = await repository.close();
+        logLine("COMPLETE", "Build completed successfully");
 
         return {
             payload: {
@@ -357,6 +395,7 @@ export async function runTrackingAudit(config) {
             output
         };
     } catch (error) {
+        logLine("ERROR", error instanceof Error ? error.message : "Run failed unexpectedly", true);
         if (runId) {
             const failedAt = new Date().toISOString();
             await repository.saveRun({
