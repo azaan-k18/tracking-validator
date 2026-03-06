@@ -338,7 +338,6 @@ async function startServer() {
         }
     });
 
-<<<<<<< Updated upstream
     app.get("/api/runs/:id/logs", async (request, response) => {
         try {
             const id = parseRunId(request.params.id);
@@ -616,16 +615,11 @@ async function startServer() {
         }
     });
 
-    const port = Number(process.env.PORT || 4000);
-    app.listen(port, () => {
-        console.log(`Tracking Validator API listening at http://localhost:${port}`);
-=======
     const port = Number(process.env.PORT || 5000);
     const host = process.env.SERVER_HOST || "0.0.0.0";
 
     app.listen(port, host, () => {
         console.log(`Tracking Validator API listening at http://${host}:${port}`);
->>>>>>> Stashed changes
     });
 }
 
