@@ -32,26 +32,11 @@ export default async function RunDetailPage({ params, searchParams }: RunDetailP
         return (
             <main className="dashboard-container">
                 <Card>
-                    <CardContent className="py-10 text-center text-red-250">
+                    <CardContent className="py-10 text-center text-danger">
                         {error instanceof Error ? error.message : "Failed to load run details"}
                     </CardContent>
                 </Card>
             </main>
         );
     }
-<<<<<<< Updated upstream
-=======
-
-    if (error || !run) {
-        return (
-            <main className="dashboard-container">
-                <Card>
-                    <CardContent className="py-10 text-center text-danger">{error || "Run not found"}</CardContent>
-                </Card>
-            </main>
-        );
-    }
-
-    return <RunDetailDashboard run={run} pages={pages} events={events} rules={rules} />;
->>>>>>> Stashed changes
 }
