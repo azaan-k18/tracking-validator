@@ -1,8 +1,22 @@
 import axios from "axios";
 import type { EventRecord, PageRecord, RuleResultRecord, RunRecord } from "@/lib/types";
 
+function resolveApiBaseUrl(): string {
+    const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.VITE_API_BASE_URL;
+
+    if (configuredUrl && configuredUrl.trim().length > 0) {
+        return configuredUrl;
+    }
+
+    if (typeof window !== "undefined") {
+        return `${window.location.protocol}//${window.location.hostname}:5000`;
+    }
+
+    return "/backend";
+}
+
 const api = axios.create({
-    baseURL: "http://localhost:4000",
+    baseURL: resolveApiBaseUrl(),
     timeout: 15000
 });
 

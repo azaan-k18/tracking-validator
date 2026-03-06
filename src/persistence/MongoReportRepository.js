@@ -16,8 +16,8 @@ export class MongoReportRepository extends ReportRepository {
      */
     constructor(options = {}) {
         super();
-        this.uri = options.uri || "mongodb://127.0.0.1:27017";
-        this.dbName = options.dbName || "trackingValidator";
+        this.uri = options.uri || process.env.MONGO_URI || "mongodb://mongo:27017/projectdb";
+        this.dbName = options.dbName || process.env.MONGO_DB_NAME || "trackingValidator";
         this.batchSize = options.batchSize || 50;
 
         this.clientManager = new MongoClientManager(this.uri, this.dbName);

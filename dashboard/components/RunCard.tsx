@@ -68,11 +68,19 @@ export function RunCard({ run, selectedDomain, selectedEnvironment }: RunCardPro
                     </div>
                     <div>
                         <p className="text-muted-foreground">Rules Passed</p>
+<<<<<<< Updated upstream
                         <p className="text-lg font-semibold text-green-250">{run.rulesPassed}</p>
                     </div>
                     <div>
                         <p className="text-muted-foreground">Rules Failed</p>
                         <p className="text-lg font-semibold text-red-250">{run.rulesFailed}</p>
+=======
+                        <p className="text-lg font-semibold text-success">{run.rulesPassed}</p>
+                    </div>
+                    <div>
+                        <p className="text-muted-foreground">Rules Failed</p>
+                        <p className="text-lg font-semibold text-danger">{run.rulesFailed}</p>
+>>>>>>> Stashed changes
                     </div>
                 </CardContent>
             </Card>

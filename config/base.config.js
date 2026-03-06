@@ -13,8 +13,8 @@ const baseConfig = {
     },
     persistence: {
         type: "mongo",
-        uri: "mongodb://127.0.0.1:27017",
-        dbName: "trackingValidator",
+        uri: process.env.MONGO_URI || "mongodb://mongo:27017/projectdb",
+        dbName: process.env.MONGO_DB_NAME || "projectdb",
         batchSize: 50
     },
     crawl: {

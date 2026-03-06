@@ -1,5 +1,6 @@
 # Tracking Validator
 
+<<<<<<< Updated upstream
 Config-driven tracking QA using Playwright and ES6 JavaScript.
 
 ## What it does
@@ -10,14 +11,18 @@ Config-driven tracking QA using Playwright and ES6 JavaScript.
 - Persists run data to files or MongoDB.
 - Exposes dashboard-ready run APIs via Express.
 - Sends aggregated email alerts when rules fail.
+=======
+Config-driven tracking QA using Playwright and ES modules, with a Next.js dashboard and MongoDB persistence.
+>>>>>>> Stashed changes
 
 ## Stack
 - Node.js 20+
 - Playwright
-- MongoDB (native driver)
-- Express + CORS
-- ESLint
+- MongoDB
+- Express API
+- Next.js dashboard
 
+<<<<<<< Updated upstream
 ## Project structure
 - `config/sites.js`: Site registry (start URL, crawl patterns, expected accounts).
 - `config/base.config.js`: Shared config + dynamic site config builder.
@@ -32,22 +37,49 @@ Config-driven tracking QA using Playwright and ES6 JavaScript.
 - `server/index.js`: Dashboard-ready backend API.
 
 ## Setup
+=======
+## Quick Start (Local)
+>>>>>>> Stashed changes
 ```bash
 npm install
+cd dashboard && npm install
+cd ..
+npm run dev
 ```
 
-## MongoDB setup
-MongoDB local URI default:
-- `mongodb://127.0.0.1:27017`
+Services:
+- Dashboard: `http://localhost:3000`
+- API: `http://localhost:5000`
 
-Default database name:
-- `trackingValidator`
+## Environment
+Root env (`.env`):
+```env
+PORT=5000
+SERVER_HOST=0.0.0.0
+MONGO_URI=mongodb://127.0.0.1:27017/projectdb
+MONGO_DB_NAME=projectdb
+```
 
-Run MongoDB locally (Homebrew install expected):
+Dashboard env (`dashboard/.env`):
+```env
+BACKEND_INTERNAL_URL=http://10.10.11.97:5000
+NEXT_PUBLIC_API_BASE_URL=/backend
+VITE_API_BASE_URL=/backend
+```
+
+## Scripts
+- `npm run dev`: runs backend + dashboard together
+- `npm run server`: backend only
+- `npm run validate -- --site <siteKey>`: run crawler validator
+- `npm run docker:start`: `docker compose up --build`
+- `npm run docker:stop`: `docker compose down`
+
+## Docker
 ```bash
-brew services start mongodb-community
+docker compose up --build
 ```
 
+<<<<<<< Updated upstream
 ## Persistence
 In `config/base.config.js` (or `config/default.config.js`):
 ```js
@@ -164,3 +196,9 @@ Each provider extends `BaseProvider` and defines:
 - Add new API calls in `dashboard/services/api.ts`.
 - Add new provider labels in `dashboard/utils/providerNames.ts`.
 - Add theme/layout utilities in `dashboard/styles/globals.css`.
+=======
+Then open:
+- `http://<SERVER_IP>:3000`
+
+See full deployment details in `DEPLOYMENT.md`.
+>>>>>>> Stashed changes

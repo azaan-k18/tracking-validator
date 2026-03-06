@@ -66,7 +66,11 @@ export default function HomePage(): JSX.Element {
             <main className="dashboard-container">
                 <BuildNowCard />
                 <Card>
+<<<<<<< Updated upstream
                     <CardContent className="py-10 text-center text-red-250">{error}</CardContent>
+=======
+                    <CardContent className="py-10 text-center text-danger">{error}</CardContent>
+>>>>>>> Stashed changes
                 </Card>
             </main>
         );

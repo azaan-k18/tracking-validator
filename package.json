@@ -5,11 +5,14 @@
     "type": "module",
     "main": "src/index.js",
     "scripts": {
+        "dev": "concurrently \"npm run server\" \"cd dashboard && npm run dev\"",
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "validate": "node scripts/validate-tracking.js",
         "validate:debug": "DEBUG=true node scripts/validate-tracking.js",
-        "server": "node server/index.js"
+        "server": "node server/index.js",
+        "docker:start": "docker compose up --build",
+        "docker:stop": "docker compose down"
     },
     "engines": {
         "node": ">=20"
@@ -23,6 +26,7 @@
         "playwright": "^1.52.0"
     },
     "devDependencies": {
+        "concurrently": "^9.2.1",
         "eslint": "^9.20.1",
         "globals": "^15.14.0"
     }
