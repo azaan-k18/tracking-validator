@@ -357,7 +357,45 @@ async function startServer() {
             }
 
             const limit = Math.min(Math.max(Number(request.query.limit) || 500, 1), 5000);
-            const logs = Array.isArray(run.logs) ? run.logs.slice(-limit) : [];
+            let logs = Array.isArray(run.logs) ? run.logs.slice(-limit) : [];
+
+            // Backward compatibility: older runs may have empty run.logs but have buildJobs stdout/stderr.
+            if (logs.length === 0) {
+                const job = await buildJobs.findOne(
+                    { runId: id.toString() },
+                    { sort: { startedAt: -1 }, projection: { startedAt: 1, stdout: 1, stderr: 1 } }
+                );
+
+                if (job) {
+                    const startedAt = job.startedAt || new Date().toISOString();
+                    const stdoutLines = String(job.stdout || "")
+                        .split(/\r?\n/)
+                        .map((line) => line.trim())
+                        .filter((line) => line.length > 0)
+                        .map((message) => ({
+                            timestamp: startedAt,
+                            stage: "PROCESS",
+                            message,
+                            source: "stdout",
+                            isError: false
+                        }));
+
+                    const stderrLines = String(job.stderr || "")
+                        .split(/\r?\n/)
+                        .map((line) => line.trim())
+                        .filter((line) => line.length > 0)
+                        .map((message) => ({
+                            timestamp: startedAt,
+                            stage: "ERROR",
+                            message,
+                            source: "stderr",
+                            isError: true
+                        }));
+
+                    logs = [...stdoutLines, ...stderrLines].slice(-limit);
+                }
+            }
+
             response.json({
                 logs,
                 status: normalizeRunStatus(run.status)
@@ -423,8 +461,6 @@ async function startServer() {
 
             let stdout = "";
             let stderr = "";
-            let stdoutRemainder = "";
-            let stderrRemainder = "";
             let logQueue = Promise.resolve();
             const queueLogAppend = (stage, lines, source) => {
                 logQueue = logQueue
@@ -440,18 +476,14 @@ async function startServer() {
             child.stdout.on("data", (chunk) => {
                 const text = chunk.toString();
                 stdout = `${stdout}${text}`;
-                const combined = `${stdoutRemainder}${text}`;
-                const lines = combined.split(/\r?\n/);
-                stdoutRemainder = lines.pop() || "";
+                const lines = text.split(/\r?\n/);
                 queueLogAppend("PROCESS", lines, "stdout");
             });
 
             child.stderr.on("data", (chunk) => {
                 const text = chunk.toString();
                 stderr = `${stderr}${text}`;
-                const combined = `${stderrRemainder}${text}`;
-                const lines = combined.split(/\r?\n/);
-                stderrRemainder = lines.pop() || "";
+                const lines = text.split(/\r?\n/);
                 queueLogAppend("ERROR", lines, "stderr");
             });
 
@@ -461,8 +493,6 @@ async function startServer() {
                 runningBuilds.delete(lockKey);
                 activeBuilds.delete(runId);
                 try {
-                    await queueLogAppend("PROCESS", [stdoutRemainder], "stdout");
-                    await queueLogAppend("ERROR", [stderrRemainder], "stderr");
                     await queueLogAppend("COMPLETE", [`Build finished with exit code ${code ?? -1}${signal ? ` (signal ${signal})` : ""}`], "system");
                     await logQueue;
                     await runs.updateOne(
