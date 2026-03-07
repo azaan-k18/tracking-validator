@@ -64,7 +64,7 @@ export function BuildNowCard(): JSX.Element {
     return (
         <>
             {toast ? (
-                <div className={`fixed right-4 top-20 z-50 rounded-xl border px-4 py-3 text-sm shadow-xl ${toast.type === "success" ? "border-green-500/50 bg-green-500/10 text-green-200" : "border-red-500/50 bg-red-500/10 text-red-200"}`}>
+                <div className={`build-toast ${toast.type === "success" ? "build-toast-success" : "build-toast-error"}`}>
                     {toast.message}
                 </div>
             ) : null}
@@ -72,10 +72,10 @@ export function BuildNowCard(): JSX.Element {
                 <CardHeader>
                     <CardTitle>Trigger New Build</CardTitle>
                     <CardDescription>
-                        <span className="block">
+                        <span className="build-widget-description-line">
                             Run tracking validation for the selected website and environment.
                         </span>
-                        <span className="mt-1 block">
+                        <span className="build-widget-description-line build-widget-description-line-secondary">
                             Selected: {domain} / {environment}
                         </span>
                     </CardDescription>
@@ -83,8 +83,8 @@ export function BuildNowCard(): JSX.Element {
                 <CardContent>
                     <Button type="button" onClick={onBuildNow} disabled={isSubmitting}>
                         {isSubmitting ? (
-                            <span className="inline-flex items-center gap-2">
-                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            <span className="build-widget-spinner-wrap">
+                                <span className="build-widget-spinner" />
                                 <span>Starting...</span>
                             </span>
                         ) : "Build Now"}

@@ -45,15 +45,15 @@ export function PageTable({ pages }: PageTableProps): JSX.Element {
     }, [pages, urlFilter]);
 
     return (
-        <Card className="bg-card/85">
-            <CardHeader className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
+        <Card className="page-table-card">
+            <CardHeader className="page-table-header">
+                <div className="page-table-header-row">
                     <CardTitle>Pages</CardTitle>
                     <Button type="button" variant="secondary" size="sm" onClick={() => setIsOpen((current) => !current)}>
                         {isOpen ? "Hide Pages" : "Show Pages"}
                     </Button>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="page-table-filter-row">
                     <Button
                         type="button"
                         variant={urlFilter === "all" ? "default" : "secondary"}
@@ -80,7 +80,7 @@ export function PageTable({ pages }: PageTableProps): JSX.Element {
                     </Button>
                 </div>
             </CardHeader>
-            <CardContent className={`transition-all duration-200 ${isOpen ? "max-h-[1800px] opacity-100" : "max-h-0 overflow-hidden p-0 opacity-0"}`}>
+            <CardContent className={`page-table-content ${isOpen ? "page-table-content-open" : "page-table-content-closed"}`}>
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -98,7 +98,7 @@ export function PageTable({ pages }: PageTableProps): JSX.Element {
 
                             return (
                                 <TableRow key={key}>
-                                    <TableCell className="max-w-[460px] truncate font-medium">{page.url}</TableCell>
+                                    <TableCell className="page-table-url-cell">{page.url}</TableCell>
                                     <TableCell>{page.depth}</TableCell>
                                     <TableCell>{page.eventCount}</TableCell>
                                     <TableCell>

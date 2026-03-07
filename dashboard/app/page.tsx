@@ -55,7 +55,7 @@ export default function HomePage(): JSX.Element {
             <main className="dashboard-container">
                 <BuildNowCard />
                 <Card>
-                    <CardContent className="py-10 text-center text-muted-foreground">Loading runs...</CardContent>
+                    <CardContent className="page-state-card-content page-state-muted">Loading runs...</CardContent>
                 </Card>
             </main>
         );
@@ -66,7 +66,7 @@ export default function HomePage(): JSX.Element {
             <main className="dashboard-container">
                 <BuildNowCard />
                 <Card>
-                    <CardContent className="py-10 text-center text-danger">{error}</CardContent>
+                    <CardContent className="page-state-card-content page-state-danger">{error}</CardContent>
                 </Card>
             </main>
         );

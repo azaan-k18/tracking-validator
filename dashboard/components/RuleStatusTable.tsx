@@ -61,13 +61,13 @@ export function RuleStatusTable({ rules }: RuleStatusTableProps): JSX.Element {
 
                             return (
                                 <TableRow key={key} data-rule-id={rule.ruleId}>
-                                    <TableCell className="font-medium">{getProviderDisplayName(rule.provider)}</TableCell>
+                                    <TableCell className="rule-provider-cell">{getProviderDisplayName(rule.provider)}</TableCell>
                                     <TableCell>
                                         <Badge variant={rule.passed ? "success" : "danger"}>{rule.passed ? "PASS" : "FAIL"}</Badge>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">
+                                    <TableCell className="rule-details-cell">
                                         {showExpandable ? (
-                                            <div className="space-y-2">
+                                            <div className="rule-details-expandable">
                                                 <button
                                                     type="button"
                                                     className="expand-toggle"

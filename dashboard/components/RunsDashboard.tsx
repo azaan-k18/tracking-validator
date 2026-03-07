@@ -82,19 +82,19 @@ export function RunsDashboard({ runs, selectedDomain, selectedEnvironment }: Run
 
     return (
         <>
-            <div className="space-y-1">
-                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-sm text-muted-foreground">Domain: {selectedDomain} | Environment: {selectedEnvironment}</p>
+            <div className="runs-header">
+                <h1 className="runs-title">Dashboard</h1>
+                <p className="runs-subtitle">Domain: {selectedDomain} | Environment: {selectedEnvironment}</p>
             </div>
 
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="runs-metrics-grid">
                 <MetricCard label="Total Runs" value={String(metrics.totalRuns)} />
                 <MetricCard label="Latest Run Status" value={metrics.latestStatus} />
                 <MetricCard label="Avg Pass Rate" value={`${metrics.avgPassRate.toFixed(1)}%`} />
                 <MetricCard label="Avg Pages Crawled" value={metrics.avgPages.toFixed(1)} />
             </section>
 
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <section className="runs-cards-grid">
                 {paginated.map((run) => (
                     <RunCard
                         key={run._id}
@@ -105,11 +105,11 @@ export function RunsDashboard({ runs, selectedDomain, selectedEnvironment }: Run
                 ))}
             </section>
 
-            <section className="flex items-center justify-end gap-2">
+            <section className="runs-pagination">
                 <Button variant="secondary" size="sm" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1}>
                     Previous
                 </Button>
-                <span className="text-sm text-muted-foreground">
+                <span className="runs-pagination-label">
                     Page {page} / {pageCount}
                 </span>
                 <Button variant="secondary" size="sm" onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={page === pageCount}>

@@ -64,19 +64,19 @@ export function EventTable({ events }: EventTableProps): JSX.Element {
     };
 
     return (
-        <Card className="bg-card/85">
-            <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="event-table-card">
+            <CardHeader className="event-table-header">
                 <CardTitle>Events</CardTitle>
-                <div className="text-xs text-muted-foreground">{filteredEvents.length} total</div>
+                <div className="event-table-total">{filteredEvents.length} total</div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="event-table-content">
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Time</TableHead>
                             <TableHead>Provider</TableHead>
                             <TableHead>
-                                <div className="relative inline-flex items-center gap-2">
+                                <div className="event-url-filter">
                                     <span>Page</span>
                                     <button
                                         type="button"
@@ -87,8 +87,8 @@ export function EventTable({ events }: EventTableProps): JSX.Element {
                                         <Filter size={14} />
                                     </button>
                                     {isUrlFilterOpen ? (
-                                        <div className="absolute left-0 top-6 z-20 w-[360px] rounded-xl border border-border bg-card p-3 shadow-xl">
-                                            <div className="mb-2 flex items-center justify-between gap-2">
+                                        <div className="event-url-dropdown">
+                                            <div className="event-url-dropdown-actions">
                                                 <Button type="button" size="sm" variant="secondary" onClick={() => setSelectedUrls(uniqueUrls)}>
                                                     Select All
                                                 </Button>
@@ -96,12 +96,12 @@ export function EventTable({ events }: EventTableProps): JSX.Element {
                                                     Clear
                                                 </Button>
                                             </div>
-                                            <div className="max-h-60 space-y-2 overflow-auto text-xs">
+                                            <div className="event-url-dropdown-list">
                                                 {uniqueUrls.map((url) => (
-                                                    <label key={url} className="flex cursor-pointer items-start gap-2">
+                                                    <label key={url} className="event-url-option">
                                                         <input
                                                             type="checkbox"
-                                                            className="mt-0.5"
+                                                            className="event-url-checkbox"
                                                             checked={selectedUrlSet.has(url)}
                                                             onChange={() => toggleUrl(url)}
                                                         />
@@ -119,17 +119,17 @@ export function EventTable({ events }: EventTableProps): JSX.Element {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {rows.map((event, index) => (
-                            <TableRow key={`${event.pageUrl}-${event.timestamp}-${index}`}>
-                                <TableCell>{formatTime(event.timestamp)}</TableCell>
-                                <TableCell className="font-medium">{getProviderDisplayName(event.providerKey)}</TableCell>
-                                <TableCell className="max-w-[320px] truncate">{event.pageUrl}</TableCell>
+                            {rows.map((event, index) => (
+                                <TableRow key={`${event.pageUrl}-${event.timestamp}-${index}`}>
+                                    <TableCell>{formatTime(event.timestamp)}</TableCell>
+                                    <TableCell className="event-provider-cell">{getProviderDisplayName(event.providerKey)}</TableCell>
+                                    <TableCell className="event-page-cell">{event.pageUrl}</TableCell>
                                 <TableCell>{event.accountId || "-"}</TableCell>
                                 <TableCell>{event.requestType || "-"}</TableCell>
                                 <TableCell>
                                     <details>
                                         <summary className="expand-toggle">View</summary>
-                                        <pre className="mt-2 max-w-[260px] overflow-auto rounded-lg bg-muted/20 p-2 text-xs">
+                                        <pre className="event-params-pre">
                                             {JSON.stringify(event.params, null, 2)}
                                         </pre>
                                     </details>
@@ -139,11 +139,11 @@ export function EventTable({ events }: EventTableProps): JSX.Element {
                     </TableBody>
                 </Table>
 
-                <div className="flex items-center justify-end gap-2">
+                <div className="event-pagination">
                     <Button variant="secondary" size="sm" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1}>
                         Previous
                     </Button>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="event-pagination-label">
                         Page {page} / {pageCount}
                     </span>
                     <Button variant="secondary" size="sm" onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={page === pageCount}>

@@ -47,32 +47,32 @@ export function RunCard({ run, selectedDomain, selectedEnvironment }: RunCardPro
                 }
             }}
             prefetch
-            className="block"
+            className="run-card-link"
         >
             <Card className="run-card">
-                <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <CardTitle className="line-clamp-1 text-sm font-medium text-muted-foreground">{formatDateTime(run.startedAt)}</CardTitle>
+                <CardHeader className="run-card-header">
+                    <div className="run-card-header-top">
+                        <CardTitle className="run-card-date">{formatDateTime(run.startedAt)}</CardTitle>
                         <Badge variant={state.variant}>{state.label}</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Site: {run.site || "unknown"}</p>
+                    <p className="run-card-site">Site: {run.site || "unknown"}</p>
                 </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <p className="text-muted-foreground">Pages</p>
-                        <p className="text-lg font-semibold">{run.pagesCrawled}</p>
+                <CardContent className="run-card-content">
+                    <div className="run-card-metric">
+                        <p className="run-card-metric-label">Pages</p>
+                        <p className="run-card-metric-value">{run.pagesCrawled}</p>
                     </div>
-                    <div>
-                        <p className="text-muted-foreground">Events</p>
-                        <p className="text-lg font-semibold">{run.eventsCaptured}</p>
+                    <div className="run-card-metric">
+                        <p className="run-card-metric-label">Events</p>
+                        <p className="run-card-metric-value">{run.eventsCaptured}</p>
                     </div>
-                    <div>
-                        <p className="text-muted-foreground">Rules Passed</p>
-                        <p className="text-lg font-semibold text-success">{run.rulesPassed}</p>
+                    <div className="run-card-metric">
+                        <p className="run-card-metric-label">Rules Passed</p>
+                        <p className="run-card-metric-value run-card-metric-success">{run.rulesPassed}</p>
                     </div>
-                    <div>
-                        <p className="text-muted-foreground">Rules Failed</p>
-                        <p className="text-lg font-semibold text-danger">{run.rulesFailed}</p>
+                    <div className="run-card-metric">
+                        <p className="run-card-metric-label">Rules Failed</p>
+                        <p className="run-card-metric-value run-card-metric-danger">{run.rulesFailed}</p>
                     </div>
                 </CardContent>
             </Card>

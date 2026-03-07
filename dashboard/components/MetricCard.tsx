@@ -17,13 +17,13 @@ interface MetricCardProps {
  */
 export function MetricCard({ label, value, helper, className, valueClassName }: MetricCardProps): JSX.Element {
     return (
-        <Card className={cn("bg-card/80", className)}>
-            <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">{label}</CardTitle>
+        <Card className={cn("metric-card", className)}>
+            <CardHeader className="metric-card-header">
+                <CardTitle className="metric-card-label">{label}</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className={cn("text-3xl font-semibold tracking-tight", valueClassName)}>{value}</div>
-                {helper ? <p className="mt-2 text-xs text-muted-foreground">{helper}</p> : null}
+                <div className={cn("metric-card-value", valueClassName)}>{value}</div>
+                {helper ? <p className="metric-card-helper">{helper}</p> : null}
             </CardContent>
         </Card>
     );

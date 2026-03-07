@@ -204,19 +204,19 @@ export function RunDetailDashboard({ run, pages, events, rules }: RunDetailDashb
 
     return (
         <main className="dashboard-container">
-            <div className="space-y-3">
-                <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <h1 className="text-3xl font-bold tracking-tight">Run Detail</h1>
-                        <p className="text-sm text-muted-foreground">Run ID: {run._id}</p>
+            <div className="run-detail-header-wrap">
+                <div className="run-detail-header-row">
+                    <div className="run-detail-header-title-wrap">
+                        <h1 className="run-detail-title">Run Detail</h1>
+                        <p className="run-detail-subtitle">Run ID: {run._id}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="run-detail-action-row">
                         {logStatus === "RUNNING" ? (
                             <Button variant="secondary" size="sm" onClick={handleStopBuild} disabled={isStopping}>
                                 {isStopping ? "Stopping..." : "Stop Build"}
                             </Button>
                         ) : null}
-                        <Button variant="secondary" size="sm" className="border border-red-500/40 text-red-300 hover:bg-red-500/20" onClick={handleDeleteRun} disabled={isDeleting}>
+                        <Button variant="secondary" size="sm" className="run-delete-button" onClick={handleDeleteRun} disabled={isDeleting}>
                             {isDeleting ? "Deleting..." : "Delete Run"}
                         </Button>
                         <Link href="/">
@@ -225,29 +225,29 @@ export function RunDetailDashboard({ run, pages, events, rules }: RunDetailDashb
                     </div>
                 </div>
                 {toastMessage ? (
-                    <div className={`rounded-xl border px-3 py-2 text-sm ${toastError ? "border-red-500/50 bg-red-500/10 text-red-200" : "border-green-500/50 bg-green-500/10 text-green-200"}`}>
+                    <div className={`run-detail-toast ${toastError ? "run-detail-toast-error" : "run-detail-toast-success"}`}>
                         {toastMessage}
                     </div>
                 ) : null}
             </div>
 
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <MetricCard label="Started At" value={formatDateTime(run.startedAt)} valueClassName="text-base" />
+            <section className="run-detail-metrics-grid">
+                <MetricCard label="Started At" value={formatDateTime(run.startedAt)} valueClassName="metric-card-value-base" />
                 <MetricCard
                     label="Status"
                     value={logStatus}
                     helper={logStatus === "RUNNING" ? "Build in progress" : ""}
-                    valueClassName="text-xl"
+                    valueClassName="metric-card-value-large"
                 />
                 <MetricCard label="Pages Crawled" value={String(run.pagesCrawled)} />
                 <MetricCard label="Events Captured" value={String(run.eventsCaptured)} />
             </section>
 
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="run-detail-metrics-grid">
                 <MetricCard label="Rules Passed" value={String(run.rulesPassed)} />
                 <MetricCard label="Rules Failed" value={String(run.rulesFailed)} />
-                <MetricCard label="Start URL" value={run.startUrl} valueClassName="url-break text-sm" />
-                <MetricCard label="Finished At" value={formatDateTime(run.finishedAt)} valueClassName="text-base" />
+                <MetricCard label="Start URL" value={run.startUrl} valueClassName="url-break metric-card-value-small" />
+                <MetricCard label="Finished At" value={formatDateTime(run.finishedAt)} valueClassName="metric-card-value-base" />
             </section>
 
             <RuleStatusTable rules={rules} />
@@ -255,34 +255,34 @@ export function RunDetailDashboard({ run, pages, events, rules }: RunDetailDashb
             <PageTable pages={pages} />
             <EventTable events={events} />
 
-            <section className="space-y-3 rounded-2xl border border-border bg-card/85 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-semibold">Live Build Logs</h2>
+            <section className="run-log-section">
+                <div className="run-log-toolbar">
+                    <div className="run-log-toolbar-left">
+                        <h2 className="run-log-title">Live Build Logs</h2>
                         <Badge variant={logStatus === "SUCCESS" ? "success" : logStatus === "RUNNING" ? "warning" : logStatus === "STOPPED" ? "default" : "danger"}>
                             {logStatus}
                         </Badge>
                         {isPolling ? (
-                            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            <span className="run-log-polling-status">
+                                <span className="run-log-spinner" />
                                 <span>Polling...</span>
                             </span>
                         ) : null}
                     </div>
-                    <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                    <label className="run-log-autoscroll-label">
                         <input type="checkbox" checked={autoScroll} onChange={(event) => setAutoScroll(event.target.checked)} />
                         <span>Auto-scroll</span>
                     </label>
                 </div>
-                <div ref={logContainerRef} className="max-h-[300px] overflow-auto rounded-xl border border-border bg-black p-3 font-mono text-xs text-green-200">
+                <div ref={logContainerRef} className="run-log-panel">
                     {logs.length === 0 ? (
-                        <div className="text-gray-400">No logs available yet.</div>
+                        <div className="run-log-empty">No logs available yet.</div>
                     ) : (
-                        <div className="space-y-1">
+                        <div className="run-log-lines">
                             {logs.map((line, index) => (
-                                <div key={`${line.timestamp}-${index}`} className={line.isError ? "text-red-400" : "text-green-200"}>
-                                    <span className="mr-2 text-gray-400">[{formatDateTime(line.timestamp)}]</span>
-                                    {line.stage ? <span className="mr-2 text-cyan-300">[{line.stage}]</span> : null}
+                                <div key={`${line.timestamp}-${index}`} className={line.isError ? "run-log-line run-log-line-error" : "run-log-line"}>
+                                    <span className="run-log-time">[{formatDateTime(line.timestamp)}]</span>
+                                    {line.stage ? <span className="run-log-stage">[{line.stage}]</span> : null}
                                     <span>{line.message}</span>
                                 </div>
                             ))}

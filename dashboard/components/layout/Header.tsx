@@ -21,7 +21,7 @@ export function Header(): JSX.Element {
             <header className="dashboard-header">
                 <div className="dashboard-header-inner">
                     <Link href="/" className="dashboard-title-link">Express Tracking Validator</Link>
-                    <div className="flex items-center gap-2">
+                    <div className="header-actions">
                         <Button type="button" variant="secondary" size="icon" onClick={() => setDrawerOpen(true)} aria-label="Open environment selector">
                             <Menu size={16} />
                         </Button>

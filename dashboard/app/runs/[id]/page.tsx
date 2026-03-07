@@ -32,7 +32,7 @@ export default async function RunDetailPage({ params, searchParams }: RunDetailP
         return (
             <main className="dashboard-container">
                 <Card>
-                    <CardContent className="py-10 text-center text-danger">
+                    <CardContent className="page-state-card-content page-state-danger">
                         {error instanceof Error ? error.message : "Failed to load run details"}
                     </CardContent>
                 </Card>

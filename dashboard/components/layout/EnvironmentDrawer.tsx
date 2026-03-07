@@ -23,13 +23,13 @@ export function EnvironmentDrawer({ open, onClose }: EnvironmentDrawerProps): JS
         <>
             {open ? <button type="button" className="drawer-overlay" onClick={onClose} aria-label="Close environment drawer" /> : null}
             <aside className={`environment-drawer ${open ? "environment-drawer-open" : ""}`}>
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                    <h2 className="text-sm font-semibold">Select Environment</h2>
+                <div className="environment-drawer-header">
+                    <h2 className="environment-drawer-title">Select Environment</h2>
                     <Button type="button" variant="ghost" size="icon" onClick={onClose}>
                         <X size={16} />
                     </Button>
                 </div>
-                <div className="space-y-2 p-4">
+                <div className="environment-drawer-content">
                     {ENVIRONMENT_OPTIONS.map((option) => (
                         <button
                             key={option}

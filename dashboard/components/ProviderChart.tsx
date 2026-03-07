@@ -24,12 +24,12 @@ export function ProviderChart({ data }: ProviderChartProps): JSX.Element {
     }));
 
     return (
-        <Card className="bg-card/85">
+        <Card className="provider-chart-card">
             <CardHeader>
                 <CardTitle>Provider Distribution</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="h-[320px] w-full">
+                <div className="provider-chart-container">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" />
